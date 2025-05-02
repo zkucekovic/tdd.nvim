@@ -20,7 +20,6 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
   config = function()
     require("tdd").setup()
   end,
-  ft = "php",
 }
 ```
 
@@ -47,12 +46,12 @@ And the following `composer.json` mapping:
 ```json
 "autoload": {
   "psr-4": {
-    "Puls\\Article\\": "src/Article/src"
+    "Content\\Article\\": "src/Article/src"
   }
 },
 "autoload-dev": {
   "psr-4": {
-    "Test\\Puls\\Article\\": "src/Article/tests/src"
+    "Test\\Content\\Article\\": "src/Article/tests/src"
   }
 }
 ```
@@ -66,7 +65,7 @@ src/Article/tests/src/Repository/ArticleTest.php
 With the following namespace:
 
 ```php
-namespace Test\Puls\Article\Repository;
+namespace Test\Content\Article\Repository;
 ```
 
 ## Contributing
@@ -79,7 +78,3 @@ To contribute:
 2. Work in a feature branch
 3. Test locally with your Neovim setup
 4. Submit a pull request
-
-## License
-
-This plugin is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
