@@ -12,8 +12,8 @@ end
 
 function M.open_or_create_test()
 	local filepath = vim.api.nvim_buf_get_name(0)
-	if not filepath:match("%.php$") then
-		vim.notify("Not a PHP file.", vim.log.levels.WARN)
+	if testfile.is_test_file(filepath) then
+		vim.notify("You are already in the test file.", vim.log.levels.INFO)
 		return
 	end
 

@@ -34,4 +34,8 @@ function M.get_test_info(source_path, composer_config)
 	return nil
 end
 
+function M.is_test_file(filepath)
+	return filepath:match("Test%.php$") ~= nil
+end
+
 return M
