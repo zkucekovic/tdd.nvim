@@ -1,7 +1,8 @@
 # tdd.nvim
 
 `tdd.nvim` is a Neovim plugin designed to streamline test-driven development for PHP projects. It allows you to quickly jump between a PHP class and its corresponding PHPUnit test, and will create the test file if it doesn't exist.
-NOTE: This plugin is still under development. In future versions, it is expected to handle namespaces and file paths more robustly.
+
+NOTE: This plugin is still under active development. In future versions, it is expected to handle namespaces and file paths more robustly.
 
 ## Features
 
