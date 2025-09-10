@@ -44,7 +44,7 @@ Using **Lazy.nvim**:
 
 ## Usage
 
-Open any PHP class file and run:
+Open a PHP class from sources folder and run:
 
 ```
 :GetTest
@@ -68,12 +68,12 @@ Open `:messages` to see the chosen PSR-4 roots, computed namespace, and final te
     {
       "autoload": {
         "psr-4": {
-          "JwPlayer\\Entity\\": "src/Entity/"
+          "MyProject\\Entity\\": "src/Entity/"
         }
       },
       "autoload-dev": {
         "psr-4": {
-          "JwPlayer\\Tests\\": "tests/"
+          "MyProject\\Tests\\": "tests/"
         }
       }
     }
@@ -92,7 +92,7 @@ Open `:messages` to see the chosen PSR-4 roots, computed namespace, and final te
 **Resulting test namespace**
 ```
     <?php
-    namespace JwPlayer\Tests\Entity\Media\Image;
+    namespace MyProject\Tests\Entity\Media\Image;
 ```
 
 ## Contributing
