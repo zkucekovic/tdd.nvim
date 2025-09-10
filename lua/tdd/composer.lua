@@ -1,38 +1,32 @@
 local M = {}
 
 local json = vim.json
-
--- simple memoization to avoid repeated reads
 local _cache = {}
 
 local function normalize(path)
 	if not path or path == "" then
 		return ""
 	end
-	path = tostring(path)
-	path = path:gsub("\\", "/")
-	-- collapse multiple slashes
-	path = path:gsub("//+", "/")
-	-- remove trailing slashes (keep root "/")
+	path = tostring(path):gsub("\\", "/"):gsub("//+", "/")
 	if #path > 1 then
 		path = path:gsub("/+$", "")
 	end
 	return path
 end
 
+local function is_root(dir)
+	if dir == "/" then
+		return true
+	end
+	if dir:match("^%a:/$") then
+		return true
+	end -- Windows drive root
+	return false
+end
+
 function M.find_project_root(start_path)
 	local dir = vim.fn.fnamemodify(start_path, ":p")
 	dir = normalize(vim.fn.fnamemodify(dir, ":h"))
-	-- On Windows, stop at drive root like "C:/"
-	local function is_root(d)
-		if d == "/" then
-			return true
-		end
-		if d:match("^%a:/$") then
-			return true
-		end
-		return false
-	end
 	while dir and dir ~= "" do
 		if vim.fn.filereadable(dir .. "/composer.json") == 1 then
 			return dir
@@ -53,6 +47,7 @@ function M.load_config(root)
 	if _cache[root] then
 		return _cache[root]
 	end
+
 	local file = root .. "/composer.json"
 	local ok_read, lines = pcall(vim.fn.readfile, file)
 	if not ok_read then
