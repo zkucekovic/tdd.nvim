@@ -63,6 +63,7 @@ Open `:messages` to see the chosen PSR-4 roots, computed namespace, and final te
 
 ## Example (typical PSR-4 library layout)
 
+```
 **composer.json**
     {
       "autoload": {
@@ -76,17 +77,28 @@ Open `:messages` to see the chosen PSR-4 roots, computed namespace, and final te
         }
       }
     }
+```
 
 **Source file**
+```
     src/Entity/Media/Image/EmptyImage.php
+```
 
 **Resulting test file**
+```
+```
     tests/Entity/Media/Image/EmptyImageTest.php
+```
+```
 
 **Resulting test namespace**
+```
+```
     <?php
     namespace JwPlayer\Tests\Entity\Media\Image;
 ```
+```
+
 
 ## Contributing
 
