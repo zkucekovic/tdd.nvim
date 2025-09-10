@@ -1,6 +1,8 @@
 local M = {}
 
-local composer = require("tdd.composer") -- only to get project root if __root missing
+local composer = require("tdd.composer") -- za pronalaženje project root-a ako __root fali
+
+-- ========== helpers (put/namespace) ==========
 
 local function normalize(path)
 	if not path or path == "" then
@@ -22,11 +24,9 @@ local function ensure_trailing_slash(path)
 end
 
 local function ns_ensure_trailing(ns)
-	if ns == "" then
-		return ""
-	end
-	if not ns:match("\\$") then
-		return ns .. "\\"
+	ns = ns or ""
+	if ns ~= "" and not ns:match("\\$") then
+		ns = ns .. "\\"
 	end
 	return ns
 end
@@ -63,7 +63,7 @@ local function psr4_map_to_list(map)
 		local nns = ns_ensure_trailing(ns)
 		local np = {}
 		for _, p in ipairs(lst) do
-			table.insert(np, ensure_trailing_slash(p)) -- NOTE: keep RELATIVE
+			table.insert(np, ensure_trailing_slash(p)) -- RELATIVNO u odnosu na project root
 		end
 		table.insert(out, { namespace = nns, paths = np })
 	end
@@ -101,7 +101,24 @@ local function relative_path(full, root_prefix)
 	return full:sub(#root_prefix + 1)
 end
 
--- broader test detection
+local function first_segment(ns) -- "JwPlayer\\Entity\\" -> "JwPlayer"
+	local seg = (ns or ""):match("^([^\\]+)\\")
+	return seg or ""
+end
+
+local function suffix_after_vendor(ns) -- "JwPlayer\\Entity\\" -> "Entity\\"
+	ns = ns_ensure_trailing(ns or "")
+	local vendor = first_segment(ns)
+	if vendor == "" then
+		return ""
+	end
+	local after = ns:sub(#vendor + 2) -- preskoči "Vendor\"
+	return ns_ensure_trailing(after)
+end
+
+-- ========== javni API ==========
+
+-- širi detektor test fajla
 function M.is_test_file(filepath)
 	if not filepath or filepath == "" then
 		return false
@@ -109,46 +126,56 @@ function M.is_test_file(filepath)
 	local name = vim.fn.fnamemodify(filepath, ":t")
 	if name:match("Test%.php$") then
 		return true
-	end
+	end -- FooTest.php
 	if name:match("Tests%.php$") then
 		return true
-	end
+	end -- FooTests.php
 	if name:lower():match("_test%.php$") then
 		return true
-	end
+	end -- foo_test.php
 	return false
 end
 
--- (source_path, composer_config [, user_cfg [, debug]])
-function M.get_test_info(source_path, composer_config, user_cfg, debug)
-	user_cfg = user_cfg or {}
+-- get_test_info(source_path, composer_config [, cfg_or_debug [, debug]])
+-- Napomena: nema konfiguracije za namespace; sve izvedeno iz composer.json.
+-- Dozvoljen je opcioni cfg sa 'test_filename_pattern' (default "%sTest.php").
+function M.get_test_info(source_path, composer_config, cfg_or_debug, debug)
+	local user_cfg = nil
+	local debug_mode = false
+	if type(cfg_or_debug) == "table" then
+		user_cfg = cfg_or_debug
+		debug_mode = (type(debug) == "boolean") and debug or false
+	elseif type(cfg_or_debug) == "boolean" then
+		debug_mode = cfg_or_debug
+	end
+
 	local dbg = {}
 
+	-- 1) project root (apsolutno), source_rel (relativno)
 	local full_source_abs = normalize(source_path)
 	local root_abs = normalize(composer_config.__root or composer.find_project_root(full_source_abs) or "")
 	if root_abs == "" then
-		return (debug and nil or nil), (debug and { error = "no_project_root" } or nil)
+		return (debug_mode and nil or nil), (debug_mode and { error = "no_project_root" } or nil)
 	end
 
-	-- make the source path RELATIVE to project root once
 	local source_rel = relative_path(full_source_abs, root_abs)
 	if not source_rel then
-		return (debug and nil or nil),
-			(debug and { error = "source_not_under_root", root = root_abs, full = full_source_abs } or nil)
+		return (debug_mode and nil or nil),
+			(debug_mode and { error = "source_not_under_root", root = root_abs, full = full_source_abs } or nil)
 	end
 
 	dbg.root = root_abs
 	dbg.full_source = full_source_abs
 	dbg.source_rel = source_rel
 
-	-- Parse RELATIVE psr-4 maps (kept RELATIVE)
+	-- 2) PSR-4 mapiranja (RELATIVNA)
 	local prod_psr4 = psr4_map_to_list(composer_config.autoload and composer_config.autoload["psr-4"] or {})
 	local dev_psr4 =
 		psr4_map_to_list(composer_config["autoload-dev"] and composer_config["autoload-dev"]["psr-4"] or {})
 	dbg.prod_psr4 = prod_psr4
 	dbg.dev_psr4 = dev_psr4
 
-	-- Choose best PROD mapping by matching RELATIVE source against RELATIVE psr-4 paths
+	-- 3) Nađi najbolje prod mapiranje na osnovu REL putanje
 	local chosen_ns, chosen_root_rel = nil, nil
 	for _, entry in ipairs(prod_psr4) do
 		local match_root_rel = longest_path_prefix_match(source_rel, entry.paths)
@@ -164,95 +191,124 @@ function M.get_test_info(source_path, composer_config, user_cfg, debug)
 	dbg.chosen_prod_root_rel = chosen_root_rel
 
 	if not chosen_ns or not chosen_root_rel then
-		return (debug and nil or nil), (debug and dbg or nil)
+		return (debug_mode and nil or nil), (debug_mode and dbg or nil)
 	end
 
 	local rel_inside_prod = relative_path(source_rel, chosen_root_rel)
 	if not rel_inside_prod then
-		return (debug and nil or nil), (debug and dbg or nil)
+		return (debug_mode and nil or nil), (debug_mode and dbg or nil)
 	end
 	dbg.relative_from_prod_root = rel_inside_prod
 
-	-- Compute class info
+	-- 4) Izračun klase / namespace delova
 	local class_rel_no_ext = rel_inside_prod:gsub("%.php$", "")
 	local class_ns_suffix = class_rel_no_ext:gsub("/", "\\")
-	local class_full_ns = chosen_ns .. class_ns_suffix -- FYI
+	local class_full_ns = chosen_ns .. class_ns_suffix
 	local class_name = basename_no_ext(source_rel)
+	dbg.class_full_ns = class_full_ns
 
-	-- Test root configuration
-	local test_ns_root = ns_ensure_trailing(user_cfg.test_namespace_root or "Tests\\")
-	local fallback_test_dir = ensure_trailing_slash(user_cfg.test_dir or "tests/")
+	local vendor = first_segment(chosen_ns) -- "JwPlayer"
+	local vendor_suffix_ns = suffix_after_vendor(chosen_ns) -- "Entity\"
+	local vendor_suffix_path = normalize(vendor_suffix_ns):gsub("\\", "/") -- "Entity/"
+	local ns_part = (class_ns_suffix:match("^(.*)\\[^\\]+$") or "")
 
-	-- Pick DEV mapping (RELATIVE). Strategy:
-	-- 1) Prefix: target_ns = test_ns_root .. chosen_ns ; take longest dev entry that's a prefix of target_ns
-	-- 2) Suffix: if none, strip test_ns_root from dev ns and see if chosen_ns endsWith(dev_suffix)
-	local selected_dev_ns, selected_dev_root_rel = nil, nil
-	do
-		local target_ns = test_ns_root .. chosen_ns
-		-- 1) prefix
+	-- 5) Odaberi DEV mapiranje (REL), bez ikakve korisničke konfiguracije.
+	-- Heuristike:
+	--   (A) Preferiraj "Vendor\\Tests\\" => "tests/"    (mirror posle vendora)
+	--   (B) Ako ga nema, probaj "Tests\\" => "tests/"   (global Tests koren)
+	--   (C) Ako ni to, suffix varijante npr. "Tests\\Entity\\" => "tests/Entity/"
+	local selected_dev = nil
+
+	-- indeksiraj za brzi lookup
+	local dev_by_ns = {}
+	for _, entry in ipairs(dev_psr4) do
+		dev_by_ns[entry.namespace] = entry
+	end
+
+	-- (A)
+	local preferred_ns_A = ns_ensure_trailing(vendor .. "\\Tests")
+	if dev_by_ns[preferred_ns_A] then
+		selected_dev = dev_by_ns[preferred_ns_A]
+	end
+
+	-- (B)
+	if not selected_dev and dev_by_ns["Tests\\"] then
+		selected_dev = dev_by_ns["Tests\\"]
+	end
+
+	-- (C) suffix match: uzmi onaj sa najdužim sufiksom
+	if not selected_dev then
+		local best_len, best_entry = -1, nil
 		for _, entry in ipairs(dev_psr4) do
 			local entry_ns = entry.namespace
-			if target_ns:sub(1, #entry_ns) == entry_ns then
-				if not selected_dev_ns or #entry_ns > #selected_dev_ns then
-					selected_dev_ns = entry_ns
-					selected_dev_root_rel = entry.paths[1] -- usually one path
+			-- skini "Vendor\\Tests\\" ako je tu, inače "Tests\\"
+			local suffix_ns = entry_ns
+			local prefix_vendor_tests = preferred_ns_A
+			if suffix_ns:sub(1, #prefix_vendor_tests) == prefix_vendor_tests then
+				suffix_ns = suffix_ns:sub(#prefix_vendor_tests + 1)
+			elseif suffix_ns:sub(1, #"Tests\\") == "Tests\\" then
+				suffix_ns = suffix_ns:sub(#"Tests\\" + 1)
+			end
+			if suffix_ns ~= "" and chosen_ns:sub(-#suffix_ns) == suffix_ns then
+				if #suffix_ns > best_len then
+					best_len = #suffix_ns
+					best_entry = entry
 				end
 			end
 		end
-		-- 2) suffix (e.g. dev "Tests\\Entity\\" maps prod "JwPlayer\\Entity\\")
-		if not selected_dev_ns then
-			for _, entry in ipairs(dev_psr4) do
-				local entry_ns = entry.namespace
-				local dev_suffix = entry_ns
-				if dev_suffix:sub(1, #test_ns_root) == test_ns_root then
-					dev_suffix = dev_suffix:sub(#test_ns_root + 1) -- e.g. "Entity\"
-				end
-				if dev_suffix ~= "" and chosen_ns:sub(-#dev_suffix) == dev_suffix then
-					if not selected_dev_ns or #dev_suffix > #(selected_dev_ns:sub(#test_ns_root + 1)) then
-						selected_dev_ns = entry_ns
-						selected_dev_root_rel = entry.paths[1]
-					end
-				end
-			end
+		if best_entry then
+			selected_dev = best_entry
 		end
 	end
 
-	dbg.selected_dev_ns = selected_dev_ns
-	dbg.selected_dev_root_rel = selected_dev_root_rel
-
-	local ns_part = (class_ns_suffix:match("^(.*)\\[^\\]+$") or "")
-
+	-- 6) Izgradi test namespace i relativni dir po odabranom dev mapiranju
 	local test_namespace
 	local test_root_dir_rel
-	if selected_dev_ns and selected_dev_root_rel then
-		test_namespace = selected_dev_ns .. ns_part
-		test_root_dir_rel = ensure_trailing_slash(selected_dev_root_rel) -- RELATIVE
+
+	if selected_dev then
+		local dev_ns = selected_dev.namespace
+		local dev_root_rel = ensure_trailing_slash(selected_dev.paths[1] or "")
+		-- Ako je tip (A) ili (B): mirror posle vendora (dodaj "Entity/" i sl.)
+		if dev_ns == preferred_ns_A or dev_ns == "Tests\\" then
+			test_namespace = ns_ensure_trailing(dev_ns) .. vendor_suffix_ns .. ns_part
+			test_root_dir_rel = ensure_trailing_slash(join_paths(dev_root_rel, vendor_suffix_path))
+		else
+			-- suffix varijanta: dev ns već uključuje modul ("Tests\\Entity\\")
+			test_namespace = ns_ensure_trailing(dev_ns) .. ns_part
+			test_root_dir_rel = dev_root_rel
+		end
 	else
-		test_namespace = test_ns_root .. chosen_ns .. ns_part
-		test_root_dir_rel = ensure_trailing_slash(fallback_test_dir) -- RELATIVE
+		-- Fallback ako nema autoload-dev: standardni "Tests\\" pod "tests/"
+		test_namespace = ns_ensure_trailing("Tests\\") .. chosen_ns .. ns_part
+		test_root_dir_rel = ensure_trailing_slash("tests/")
 	end
 
 	dbg.test_namespace = test_namespace
 	dbg.test_root_dir_rel = test_root_dir_rel
 
-	-- Build TEST PATH (RELATIVE), then join with root once for filesystem ops
+	-- 7) Sastavi REL putanju do testa i onda je spoji sa root-om za filesystem
 	local class_dir_rel = dirname(rel_inside_prod)
+	-- Ako smo u (A)/(B) već smo ubacili "Entity/" u test_root_dir_rel; u (C) je već u mapi.
 	local test_dir_rel = join_paths(test_root_dir_rel, class_dir_rel)
-	local test_filename = string.format(user_cfg.test_filename_pattern or "%sTest.php", class_name)
+
+	local pattern = "%sTest.php"
+	if user_cfg and type(user_cfg.test_filename_pattern) == "string" and user_cfg.test_filename_pattern ~= "" then
+		pattern = user_cfg.test_filename_pattern
+	end
+	local test_filename = string.format(pattern, class_name)
 	local test_path_rel = join_paths(test_dir_rel, test_filename)
 	local test_path_abs = join_paths(root_abs, test_path_rel)
 
 	dbg.test_path_rel = test_path_rel
 	dbg.test_path_abs = test_path_abs
-	dbg.class_full_ns = class_full_ns
 
 	local result = {
-		path = test_path_abs, -- absolute only at the very end to open/create
+		path = test_path_abs, -- apsolutno, da bismo otvorili/kreirali
 		namespace = test_namespace,
 		class_name = class_name .. "Test",
 	}
 
-	if debug then
+	if debug_mode then
 		return result, dbg
 	end
 	return result
