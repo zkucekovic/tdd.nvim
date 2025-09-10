@@ -86,9 +86,7 @@ Open `:messages` to see the chosen PSR-4 roots, computed namespace, and final te
 
 **Resulting test file**
 ```
-```
     tests/Entity/Media/Image/EmptyImageTest.php
-```
 ```
 
 **Resulting test namespace**
