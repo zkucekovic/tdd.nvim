@@ -1,24 +1,41 @@
 # tdd.nvim
 
-`tdd.nvim` is a Neovim plugin designed to streamline test-driven development for PHP projects. It allows you to quickly jump between a PHP class and its corresponding PHPUnit test, and will create the test file if it doesn't exist.
+`tdd.nvim` is a Neovim plugin designed to streamline test-driven development for PHP projects. It allows you to quickly jump between a PHP class and its corresponding PHPUnit test, and will create the test file if it doesn't exist. It reads **PSR-4 mappings directly from your project’s `composer.json`** (`autoload` and `autoload-dev`) — **no manual namespace configuration**.
 
-NOTE: This plugin is still under active development. In future versions, it is expected to handle namespaces and file paths more robustly.
+> **NOTE:** This plugin is under active development. Mapping should now be robust (supports PSR-4 arrays, non-`src/` roots, and common test namespace layouts).
 
 ## Features
 
-- Detects matching test files based on PSR-4 mappings in `composer.json`
+- Detects matching test files based on **PSR-4** mappings in `composer.json`
 - Prompts to open an existing test in a vertical split
-- Creates a new PHPUnit test class with the correct namespace and path
-- Parses both `autoload` and `autoload-dev` sections from `composer.json`
-- Automatically finds the project root
+- Creates a new **PHPUnit test class template** with the correct **namespace and path**
+- Parses both **`autoload`** and **`autoload-dev`** sections from `composer.json`
+- Automatically finds the **project root**
+- **Supports multiple PSR-4 paths** and common test layouts:
+  - `YourRootNamespace\Tests\ => tests/` (recommended mirror-after-vendor style)
+  - `Tests\ => tests/` (global tests root)
+  - Module maps like `Tests\Entity\ => tests/Entity/`
+- **Debug command** to inspect how the path/namespace was derived: `:GetTestDebug`
 
 ## Installation
 
-Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
+Using **Lazy.nvim**:
 
 ```lua
 {
   "zkucekovic/tdd.nvim",
+  config = function()
+    require("tdd").setup() -- no config needed
+  end,
+}
+```
+
+*(Optional: track a branch instead of tags)*
+```lua
+{
+  "zkucekovic/tdd.nvim",
+  branch = "feature/some-dev-branch",
+  version = false,
   config = function()
     require("tdd").setup()
   end,
@@ -27,56 +44,50 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ## Usage
 
-Open any PHP class file and run the following command:
+Open any PHP class file and run:
 
-```vim
+```
 :GetTest
 ```
 
-If a matching test file exists, the plugin will prompt you to open it in a vertical split. If it doesn't exist, it will offer to create one using a PHPUnit skeleton. The plugin uses the PSR-4 autoload mappings in your `composer.json` file to determine the correct file path and namespace.
+- If a matching test file exists, the plugin will prompt you to open it in a vertical split.
+- If it doesn't exist, it will offer to create one using a PHPUnit skeleton. The plugin uses the **PSR-4 autoload mappings** in your `composer.json` to determine the correct file path and namespace, and creates any missing directories.
 
-## Example
-
-Given a source file:
-
+**Inspect mappings (optional):**
 ```
-src/Article/src/Repository/Article.php
+:GetTestDebug
 ```
+Open `:messages` to see the chosen PSR-4 roots, computed namespace, and final test path.
 
-And the following `composer.json` mapping:
+> Tip: after changing `composer.json`, run `composer dump-autoload -o`.
 
-```json
-"autoload": {
-  "psr-4": {
-    "Content\\Article\\": "src/Article/src"
-  }
-},
-"autoload-dev": {
-  "psr-4": {
-    "Test\\Content\\Article\\": "src/Article/tests/src"
-  }
-}
-```
+## Example (typical PSR-4 library layout)
 
-`tdd.nvim` will create or open:
+**composer.json**
+    {
+      "autoload": {
+        "psr-4": {
+          "JwPlayer\\Entity\\": "src/Entity/"
+        }
+      },
+      "autoload-dev": {
+        "psr-4": {
+          "JwPlayer\\Tests\\": "tests/"
+        }
+      }
+    }
 
-```
-src/Article/tests/src/Repository/ArticleTest.php
-```
+**Source file**
+    src/Entity/Media/Image/EmptyImage.php
 
-With the following namespace:
+**Resulting test file**
+    tests/Entity/Media/Image/EmptyImageTest.php
 
-```php
-namespace Test\Content\Article\Repository;
+**Resulting test namespace**
+    <?php
+    namespace JwPlayer\Tests\Entity\Media\Image;
 ```
 
 ## Contributing
 
 Contributions are welcome. Please keep the code simple, modular, and testable. The plugin is in early development, so unit tests are not mandatory yet, but writing clean and reusable modules is encouraged.
-
-To contribute:
-
-1. Fork or clone the repository
-2. Work in a feature branch
-3. Test locally with your Neovim setup
-4. Submit a pull request
