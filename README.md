@@ -90,9 +90,10 @@ Open `:messages` to see the chosen PSR-4 roots, computed namespace, and final te
 ```
 
 **Resulting test namespace**
+```
     <?php
     namespace JwPlayer\Tests\Entity\Media\Image;
-
+```
 
 ## Contributing
 
