@@ -1,3 +1,4 @@
+-- nvim --headless --clean -c 'luafile tests/requirements_spec.lua' -c 'qa'
 local root = vim.fn.getcwd()
 package.path = root .. "/lua/?.lua;" .. root .. "/lua/?/init.lua;" .. package.path
 
@@ -53,10 +54,17 @@ requirements[#requirements + 1] = {
 		vim.fn.mkdir(tmp .. "/project", "p")
 		local composer_path = tmp .. "/project/composer.json"
 		vim.fn.writefile({
+<<<<<<< HEAD
 			'{',
 			'  "name": "example/project",',
 			'  "autoload": { "psr-4": {"App\\\\": "src/"} }',
 			'}',
+=======
+			"{",
+			'  "name": "example/project",',
+			'  "autoload": { "psr-4": {"App\\\\": "src/"} }',
+			"}",
+>>>>>>> 8f7726f (improved namespace resolution. added tests.)
 		}, composer_path)
 
 		local first = composer.load_config(tmp .. "/project")
@@ -83,17 +91,39 @@ requirements[#requirements + 1] = {
 		local cfg = {
 			__root = "/project",
 			autoload = { ["psr-4"] = { ["Vendor\\Module\\"] = { "src/Module/" } } },
+<<<<<<< HEAD
 			["autoload-dev"] = { ["psr-4"] = {
 				["Test\\Vendor\\Module\\"] = { "tests/Module/" },
 				["Test\\Vendor\\Shared\\"] = { "tests/Shared/" },
 			} },
+=======
+			["autoload-dev"] = {
+				["psr-4"] = {
+					["Test\\Vendor\\Module\\"] = { "tests/Module/" },
+					["Test\\Vendor\\Shared\\"] = { "tests/Shared/" },
+				},
+			},
+>>>>>>> 8f7726f (improved namespace resolution. added tests.)
 		}
 		local source = "/project/src/Module/Feature/Service.php"
 
 		local info = testfile.get_test_info(source, cfg)
 
+<<<<<<< HEAD
 		assert_equal(info.path, "/project/tests/Module/Feature/ServiceTest.php", "should choose matching Test\\Vendor\\ mapping")
 		assert_equal(info.namespace, "Test\\Vendor\\Module\\Feature", "dev namespace should combine vendor tests prefix and class namespace")
+=======
+		assert_equal(
+			info.path,
+			"/project/tests/Module/Feature/ServiceTest.php",
+			"should choose matching Test\\Vendor\\ mapping"
+		)
+		assert_equal(
+			info.namespace,
+			"Test\\Vendor\\Module\\Feature",
+			"dev namespace should combine vendor tests prefix and class namespace"
+		)
+>>>>>>> 8f7726f (improved namespace resolution. added tests.)
 		assert_equal(info.class_name, "ServiceTest", "test class should mirror production class name with Test suffix")
 	end,
 }
@@ -110,7 +140,15 @@ requirements[#requirements + 1] = {
 
 		local info = testfile.get_test_info(source, cfg)
 
+<<<<<<< HEAD
 		assert_equal(info.path, "/project/tests/UnitTest.php", "without autoload-dev match, it should fall back to top-level tests directory")
+=======
+		assert_equal(
+			info.path,
+			"/project/tests/UnitTest.php",
+			"without autoload-dev match, it should fall back to top-level tests directory"
+		)
+>>>>>>> 8f7726f (improved namespace resolution. added tests.)
 		assert_equal(info.namespace, "Tests\\Vendor\\Solo", "fallback namespace should be under Tests vendor namespace")
 	end,
 }
@@ -126,7 +164,15 @@ requirements[#requirements + 1] = {
 		local source = "/project/lib/Feature/Thing.php"
 		local info = testfile.get_test_info(source, cfg, { test_filename_pattern = "test_%s.php" })
 
+<<<<<<< HEAD
 		assert_equal(info.path, "/project/spec/Feature/test_Thing.php", "should apply custom pattern while keeping directory mapping")
+=======
+		assert_equal(
+			info.path,
+			"/project/spec/Feature/test_Thing.php",
+			"should apply custom pattern while keeping directory mapping"
+		)
+>>>>>>> 8f7726f (improved namespace resolution. added tests.)
 		assert_equal(info.namespace, "Tests\\Feature", "namespace should stay consistent with selected dev namespace")
 		assert_equal(info.class_name, "ThingTest", "class naming still appends Test suffix")
 	end,
