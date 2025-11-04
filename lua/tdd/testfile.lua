@@ -224,6 +224,7 @@ function M.get_test_info(source_path, composer_config, cfg_or_debug, debug)
 	end
 
 	local preferred_ns_A = ns_ensure_trailing(vendor .. "\\Tests") -- "Vendor\\Tests\\"
+	local preferred_ns_B = ns_ensure_trailing("Test\\" .. vendor) -- "Test\\Vendor\\"
 	if dev_by_ns[preferred_ns_A] then
 		selected_dev = dev_by_ns[preferred_ns_A]
 	end
@@ -239,6 +240,10 @@ function M.get_test_info(source_path, composer_config, cfg_or_debug, debug)
 				suffix_ns = suffix_ns:sub(#preferred_ns_A + 1)
 			elseif suffix_ns:sub(1, #"Tests\\") == "Tests\\" then
 				suffix_ns = suffix_ns:sub(#"Tests\\" + 1)
+			elseif suffix_ns:sub(1, #preferred_ns_B) == preferred_ns_B then
+				suffix_ns = suffix_ns:sub(#preferred_ns_B + 1)
+			elseif suffix_ns:sub(1, #"Test\\") == "Test\\" then
+				suffix_ns = suffix_ns:sub(#"Test\\" + 1)
 			end
 			if suffix_ns ~= "" and chosen_ns:sub(-#suffix_ns) == suffix_ns then
 				if #suffix_ns > best_len then
